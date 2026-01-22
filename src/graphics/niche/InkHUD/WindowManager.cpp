@@ -272,7 +272,6 @@ void InkHUD::WindowManager::toggleBatteryIcon()
         batteryIcon->sendToBackground();
 
     // Force-render
-    // - redraw all applets
     inkhud->forceUpdate(EInk::UpdateTypes::FAST);
 }
 
@@ -313,7 +312,7 @@ void InkHUD::WindowManager::changeLayout()
 
     // Force-render
     // - redraw all applets
-    inkhud->forceUpdate(EInk::UpdateTypes::FAST);
+    inkhud->forceUpdate(EInk::UpdateTypes::FAST, true);
 }
 
 // Perform necessary reconfiguration when user activates or deactivates applets at run-time
@@ -347,7 +346,7 @@ void InkHUD::WindowManager::changeActivatedApplets()
 
     // Force-render
     // - redraw all applets
-    inkhud->forceUpdate(EInk::UpdateTypes::FAST);
+    inkhud->forceUpdate(EInk::UpdateTypes::FAST, true);
 }
 
 // Some applets may be permitted to bring themselves to foreground, to show new data

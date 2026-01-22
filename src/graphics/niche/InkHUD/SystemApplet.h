@@ -25,6 +25,7 @@ class SystemApplet : public Applet
     bool handleInput = false;   // - respond to input from the user button
     bool lockRendering = false; // - prevent other applets from being rendered during an update
     bool lockRequests = false;  // - prevent other applets from triggering display updates
+    bool alwaysRender = false;  // - render every time the screen is updated
 
     virtual void onReboot() { onShutdown(); } // - handle reboot specially
 
