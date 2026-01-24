@@ -32,7 +32,7 @@ class MenuApplet : public SystemApplet, public concurrency::OSThread
     void onNavDown() override;
     void onNavLeft() override;
     void onNavRight() override;
-    void onRender() override;
+    void onRender(bool full) override;
 
     void show(Tile *t); // Open the menu, onto a user tile
 

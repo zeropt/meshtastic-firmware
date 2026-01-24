@@ -383,7 +383,7 @@ void InkHUD::MenuApplet::showPage(MenuPage page)
     currentPage = page;
 }
 
-void InkHUD::MenuApplet::onRender()
+void InkHUD::MenuApplet::onRender(bool full)
 {
     if (items.size() == 0)
         LOG_ERROR("Empty Menu");
