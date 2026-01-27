@@ -493,19 +493,179 @@ void InkHUD::Applet::printWrapped(int16_t left, int16_t top, uint16_t width, std
                     // Manual newline, if next character will spill beyond screen edge
                     if ((l + w) > left + width)
                         setCursor(left, getCursorY() + getFont().lineHeight());
-
                     // Print next character
                     print(word[c]);
                 }
             }
         }
-
         // If word was terminated by a newline char, manually add the new line now
         if (text[i] == '\n') {
             setCursor(left, getCursorY() + getFont().lineHeight()); // Manual newline
             wordStart = i + 1; // New word begins after the newline. Otherwise print will add an *extra* line
         }
+
     }
+
+
+
+}
+
+
+// Special printWrapped with the ability to place a cursor in the text.
+void InkHUD::Applet::printWrappedWithCursor(int16_t left, int16_t top, uint16_t width, std::string text, uint16_t relative, int16_t *potentialUp, int16_t *potentialDown)
+{
+    // Place the AdafruitGFX cursor to suit our "top" coord
+    setCursor(left, top + getFont().heightAboveCursor());
+
+    // How wide a space character is
+    // Used when simulating print, for dimensioning
+    // Works around issues where getTextDimensions() doesn't account for whitespace
+    const uint8_t wSp = getFont().widthBetweenWords();
+    std::vector<uint16_t> chpl;
+    // Move through our text, character by character
+    uint16_t wordStart = 0;
+    uint16_t chs = 0;
+    uint16_t textCursorX = 0;
+    uint16_t textCursorY = fontSmall.lineHeight() + 2;
+    for (uint16_t i = 0; i < text.length(); i++) {
+
+        // Found: end of word (split by spaces or newline)
+        // Also handles end of string
+        chs++;
+        textCursorX += getTextWidth(std::to_string(text[i]));
+
+        if (textCursorX + 1 > width - 5) {
+            textCursorX = 0;
+            textCursorY += fontSmall.lineHeight();
+         }
+            
+         if (i == relative) {
+            fillRect(++textCursorX, ++textCursorY, 1, fontSmall.lineHeight(), BLACK);
+         }
+        if (text[i] == ' ' || text[i] == '\n' || i == text.length() - 1) {
+            // Isolate this word
+            uint16_t wordLength = (i - wordStart) + 1; // Plus one. Imagine: "a". End - Start is 0, but length is 1
+            std::string word = text.substr(wordStart, wordLength);
+            wordStart = i + 1; // Next word starts *after* the space
+
+            // If word is terminated by a newline char, don't actually print it.
+            // We'll manually add a new line later
+            if (word.back() == '\n')
+                word.pop_back();
+
+            // Measure the word, in px
+            int16_t l, t;
+            uint16_t w, h;
+            getTextBounds(word.c_str(), getCursorX(), getCursorY(), &l, &t, &w, &h);
+
+            // Word is short
+            if (w < width) {
+                // Word fits on current line
+                if ((l + w + wSp) < left + width) {
+                    print(word.c_str());
+                }
+                // Word doesn't fit on current line
+                else {
+                    // If there is a lines pointer specified, begin tracking the line and characters
+                    // The number stored is a 16 bit unsigned integer where the first 10 bits represents
+                    // the index of the text when newline was made
+                    // and the last 6 bits is the amount of characters in that line.
+                    chs -= wordLength;
+                    chpl.push_back(chs + ((i - wordLength) << 6));
+                    chs = wordLength;
+                    
+                    setCursor(left, getCursorY() + getFont().lineHeight()); // Newline
+                    print(word.c_str());
+                }
+            }
+
+            // Word is really long
+            // (wider than applet)
+            else {
+                // Horribly inefficient:
+                // Rather than working directly with the glyph sizes,
+                // we're going to run everything through getTextBounds as a c-string of length 1
+                // This is because AdafruitGFX has special internal handling for their legacy 6x8 font,
+                // which would be a pain to add manually here.
+                // These super-long strings probably don't come up often so we can maybe tolerate this.
+
+                // Todo: rewrite making use of AdafruitGFX native text wrapping
+                char cstr[] = {0, 0};
+                int16_t l, t;
+                uint16_t w, h;
+                uint16_t cc = 0;
+                for (uint16_t c = 0; c < word.length(); c++) {
+                    // Shove next char into a c string
+                    cstr[0] = word[c];
+                    getTextBounds(cstr, getCursorX(), getCursorY(), &l, &t, &w, &h);
+
+                    // Manual newline, if next character will spill beyond screen edge
+                    if ((l + w) > left + width) {
+                        setCursor(left, getCursorY() + getFont().lineHeight());
+                        cc = c;
+                        chpl.push_back((chs - word.length() + cc) + ((i - cc) << 6));
+                    }
+                    // Print next character
+                    print(word[c]);
+                }
+                chs -= cc;
+            }
+            
+        }
+        // If word was terminated by a newline char, manually add the new line now
+        if (text[i] == '\n') {
+            setCursor(left, getCursorY() + getFont().lineHeight()); // Manual newline
+            wordStart = i + 1; // New word begins after the newline. Otherwise print will add an *extra* line
+            chpl.push_back(chs + (i << 6));
+            chs = 0;
+        }
+
+        if (i == text.length()) 
+            chpl.push_back(chs + (i << 6));
+            
+    }
+
+    printAt(2, Y(1.0) - (2 * fontSmall.lineHeight()) - 4, std::to_string(chpl.size()) + " " + std::to_string(chpl.size() - 1) + " " + std::to_string(chpl.back()) + " " + std::to_string(chpl[3]));
+    
+    uint16_t lineRelativeIndex = 0;
+    for (uint16_t l = 0; l < chpl.size(); l++) {
+        uint16_t line = chpl[l]; // index at the end of a line and characters in that line
+        uint16_t lineEndIndex = ((line & 0xFFC0) >> 6); // index of text at the end of the line
+        uint16_t lineStartIndex = lineEndIndex - (line & (uint16_t) 63) + 1; // index of text at the start of the line
+
+        if (relative >= lineStartIndex && relative <= lineEndIndex) {
+            lineRelativeIndex = relative - lineStartIndex; // length of string from start of line to the cursor
+            
+            if (l > 0) {
+                uint16_t aboveLine = chpl[l-1]; // index at the end of a line and characters in that line
+                uint16_t aboveEndIndex = ((aboveLine & 0xFFC0) >> 6); // index at the end of the line
+                uint16_t aboveStartIndex = aboveEndIndex - (aboveLine & (uint16_t) 63) + 1; // index at the start of the line
+                *potentialUp = 0;
+                *potentialUp = aboveStartIndex + lineRelativeIndex;
+                if (*potentialUp > aboveEndIndex)
+                    *potentialUp = aboveEndIndex;
+            } else if (l == 0) {
+                *potentialUp = -1;
+            }
+            
+            if (l < chpl.size()) {
+                uint16_t belowLine = chpl[l+1]; // index at the end of a line and characters in that line
+                uint16_t belowEndIndex = ((belowLine & 0xFFC0) >> 6); // index at the end of the line
+                uint16_t belowStartIndex = belowEndIndex - (belowLine & (uint16_t) 63) + 1; // index at the start of the line
+                *potentialDown = 0;
+                *potentialDown = belowStartIndex + lineRelativeIndex;
+                if (*potentialDown < belowEndIndex)
+                    *potentialDown = belowEndIndex;
+            } else if (l == chpl.size() - 1) {
+                *potentialDown = -1;
+            }
+            
+            break;
+        }
+    }
+
+    printAt(2, Y(1.0) - fontSmall.lineHeight() - 3, std::to_string(relative) + " " + std::to_string(lineRelativeIndex) + " " + std::to_string(*potentialUp) + " " + std::to_string(*potentialDown));
+    
 }
 
 // Simulate running printWrapped, to determine how tall the block of text will be.

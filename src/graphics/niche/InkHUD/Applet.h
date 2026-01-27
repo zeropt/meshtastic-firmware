@@ -130,6 +130,7 @@ class Applet : public GFX
     void printAt(int16_t x, int16_t y, std::string text, HorizontalAlignment ha = LEFT, VerticalAlignment va = TOP);
     void printThick(int16_t xCenter, int16_t yCenter, std::string text, uint8_t thicknessX, uint8_t thicknessY); // Faux bold
     void printWrapped(int16_t left, int16_t top, uint16_t width, std::string text); // Per-word line wrapping
+    void printWrappedWithCursor(int16_t left, int16_t top, uint16_t width, std::string text, uint16_t relative, int16_t *potentialUp, int16_t *potentialDown);
 
     void hatchRegion(int16_t x, int16_t y, uint16_t w, uint16_t h, uint8_t spacing, Color color); // Fill with sparse lines
     void drawHeader(std::string text); // Draw the standard applet header

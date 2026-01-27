@@ -171,11 +171,25 @@ void InkHUD::MenuApplet::execute(MenuItem item)
     case FREE_TEXT:
         OSThread::enabled = false;
         handleFreeText = true;
-        cm.freeTextItem.rawText.erase(); // clear the previous freetext message
         freeTextMode = true;             // render input field instead of normal menu
+        cm.freeTextItem.rawText.erase(); // clear the previous freetext message
+        cm.freeTextItem.rawText = "In wilds beyond they " // 21
+                                  "speak your name with " // 21
+                                  "reverence and regret, " // 22
+                                  "For none could tame " // 20
+                                  "our savage souls yet "
+                                  "you the challenge "
+                                  "met, Under palest "
+                                  "watch, you taught, "
+                                  "you changed, base "
+                                  "instincts were "
+                                  "redeemed, A world "
+                                  "you gave to bug and "
+                                  "beast as they had "
+                                  "never dreamed.";
         // Open the on-screen keyboard if the joystick is enabled
         if (settings->joystick.enabled)
-            inkhud->openKeyboard();
+            //inkhud->openKeyboard();
         break;
 
     case STORE_CANNEDMESSAGE_SELECTION:
@@ -577,6 +591,11 @@ void InkHUD::MenuApplet::onNavUp()
             cursorShown = true;
 
         requestUpdate(Drivers::EInk::UpdateTypes::FAST);
+    } else {
+        if (potentialUp >= 0) {
+            relativeCursor = potentialUp;
+            requestUpdate(Drivers::EInk::UpdateTypes::FAST);
+        }
     }
 }
 
@@ -592,6 +611,11 @@ void InkHUD::MenuApplet::onNavDown()
             cursorShown = true;
 
         requestUpdate(Drivers::EInk::UpdateTypes::FAST);
+    } else {
+        if (potentialDown >= 0) {
+            relativeCursor = potentialDown;
+            requestUpdate(Drivers::EInk::UpdateTypes::FAST);
+        }
     }
 }
 
@@ -602,6 +626,10 @@ void InkHUD::MenuApplet::onNavLeft()
 
         // Go to the previous menu page
         showPage(previousPage);
+        requestUpdate(Drivers::EInk::UpdateTypes::FAST);
+    } else {
+        if (relativeCursor > 0) 
+            relativeCursor -= 1;
         requestUpdate(Drivers::EInk::UpdateTypes::FAST);
     }
 }
@@ -614,6 +642,9 @@ void InkHUD::MenuApplet::onNavRight()
             execute(items.at(cursor));
         if (!wantsToRender())
             requestUpdate(Drivers::EInk::UpdateTypes::FAST);
+    } else {
+        relativeCursor += 1;
+        requestUpdate(Drivers::EInk::UpdateTypes::FAST);
     }
 }
 
@@ -830,10 +861,12 @@ void InkHUD::MenuApplet::drawInputField(uint16_t left, uint16_t top, uint16_t wi
     uint32_t textHeight = getWrappedTextHeight(0, width - 5, text);
     if (!text.empty()) {
         uint16_t textPadding = X(1.0) > Y(1.0) ? wrapMaxH - textHeight : wrapMaxH - textHeight + 1;
+        if (relativeCursor == text.length())
+            relativeCursor = text.length();
         if (textHeight > wrapMaxH)
-            printWrapped(2, textPadding, width - 5, text);
+            printWrappedWithCursor(2, textPadding, width - 5, text, relativeCursor, &potentialUp, &potentialDown);
         else
-            printWrapped(2, top + 2, width - 5, text);
+            printWrappedWithCursor(2, top + 2, width - 5, text, relativeCursor, &potentialUp, &potentialDown);
     }
 
     uint16_t textCursorX = text.empty() ? 1 : getCursorX();
@@ -843,8 +876,7 @@ void InkHUD::MenuApplet::drawInputField(uint16_t left, uint16_t top, uint16_t wi
         textCursorX = getCursorX() - width + 5;
         textCursorY += fontSmall.lineHeight();
     }
-
-    fillRect(textCursorX + 1, textCursorY, 1, fontSmall.lineHeight(), BLACK);
+    
 
     // A white rectangle clears the top part of the screen for any text that's printed beyond the input box
     fillRect(0, 0, X(1.0), top, WHITE);
